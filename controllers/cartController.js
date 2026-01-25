@@ -35,7 +35,7 @@ export const getCart = async (req, res) => {
 export const updateCart = async (req, res) => {
   const quantity = Number(req.body.quantity)
   if (!Number.isInteger(quantity)) {
-    throw new BadRequestError('quantity is not integer')
+    throw new BadRequestError('Quantity is not integer')
   }
 
   try {
