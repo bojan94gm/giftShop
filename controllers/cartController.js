@@ -70,3 +70,58 @@ export const deleteCart = async (req, res) => {
 
   res.status(StatusCodes.OK).json({ msg: 'Deleted cart' })
 }
+
+export const addProductToCart = async (req, res) => {
+  const { product, quantity } = req.body
+
+  if (!req.params.id) throw new BadRequestError('Cart ID is required')
+  if (!product) throw new BadRequestError('Product id is required')
+
+  const numQuantity = Number(quantity)
+
+  if (numQuantity < 1 || !Number.isInteger(numQuantity))
+    throw new BadRequestError('Quantity must be integer larger than 0')
+
+  try {
+    const productId = new mongoose.Types.ObjectId(product)
+    const updatedCart = await Cart.findOneAndUpdate(
+      {
+        _id: req.params.id,
+        userId: req.user.userId,
+        'products.product': productId,
+      },
+      {
+        $inc: { 'products.$.quantity': numQuantity },
+      },
+      { new: true },
+    )
+
+    if (updatedCart) {
+      return res
+        .status(StatusCodes.OK)
+        .json({ msg: 'Product added to cart', updatedCart })
+    }
+
+    const pushedCart = await Cart.findOneAndUpdate(
+      {
+        _id: req.params.id,
+        userId: req.user.userId,
+      },
+      {
+        $push: { products: { product: productId, quantity: numQuantity } },
+      },
+      { new: true },
+    )
+
+    if (!pushedCart) {
+      throw new NotFoundError('Cart is not found')
+    }
+
+    res
+      .status(StatusCodes.OK)
+      .json({ msg: 'Product added to cart', pushedCart })
+  } catch (error) {
+    console.log(error)
+    throw new BadRequestError('Product is not added to cart')
+  }
+}
