@@ -174,3 +174,25 @@ export const deleteProductFromCart = async (req, res) => {
     throw error
   }
 }
+
+export const clearCart = async (req, res) => {
+  try {
+    const clearedCart = await Cart.findOneAndUpdate(
+      { _id: req.params.id, userId: req.user.userId },
+      { $set: { products: [] } },
+      { new: true },
+    )
+
+    if (!clearedCart) {
+      throw new NotFoundError('Cart is not found')
+    }
+
+    return res.status(StatusCodes.OK).json({
+      msg: 'Cart is cleared',
+      cart: clearedCart,
+    })
+  } catch (error) {
+    console.log(error)
+    throw error
+  }
+}
