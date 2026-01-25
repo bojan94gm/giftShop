@@ -125,3 +125,52 @@ export const addProductToCart = async (req, res) => {
     throw new BadRequestError('Product is not added to cart')
   }
 }
+
+export const deleteProductFromCart = async (req, res) => {
+  const productId = new mongoose.Types.ObjectId(req.body.product)
+  const quantity = Number(req.body.quantity)
+
+  if (!Number.isInteger(quantity) || quantity < 1) {
+    throw new BadRequestError('quantity must be integer number greater than 0')
+  }
+
+  try {
+    const updatedCart = await Cart.findOneAndUpdate(
+      {
+        _id: req.params.id,
+        userId: req.user.userId,
+        'products.product': productId,
+      },
+      { $inc: { 'products.$.quantity': -quantity } },
+      { new: true },
+    )
+
+    if (!updatedCart) {
+      throw new NotFoundError('Cart is not found')
+    }
+
+    const product = updatedCart.products.find(
+      (el) => el.product.toString() === productId.toString(),
+    )
+
+    if (product && product.quantity <= 0) {
+      const productRemovedFromCart = await Cart.findOneAndUpdate(
+        { _id: req.params.id, userId: req.user.userId },
+        { $pull: { products: { product: productId } } },
+        { new: true },
+      )
+
+      return res.status(StatusCodes.OK).json({
+        msg: 'Product removed from cart',
+        cart: productRemovedFromCart,
+      })
+    }
+    return res.status(StatusCodes.OK).json({
+      msg: 'Product quantity decremented from cart',
+      cart: updatedCart,
+    })
+  } catch (error) {
+    console.log(error)
+    throw error
+  }
+}
