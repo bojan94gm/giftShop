@@ -46,6 +46,7 @@ export const updateCart = async (req, res) => {
         'products.product': req.body.product,
       },
       { $inc: { 'products.$.quantity': quantity } },
+      { new: true },
     )
 
     if (!cart) {

@@ -20,6 +20,7 @@ import { NotFoundError } from './errors/errors.js'
 import authRouter from './routes/authRoutes.js'
 import productRouter from './routes/productRoutes.js'
 import cartRouter from './routes/cartRoutes.js'
+import categoryRouter from './routes/categoryRoutes.js'
 
 //Middlewares
 import { handleErrorsMiddleware } from './middlewares/handleErrorsMiddleware.js'
@@ -34,6 +35,13 @@ app.use(
   productRouter,
 )
 app.use('/api/v1/cart', authenticationMiddleware, cartRouter)
+
+app.use(
+  '/api/v1/category',
+  authenticationMiddleware,
+  authorizationMiddleware,
+  categoryRouter,
+)
 
 app.get('/', (req, res) => {
   res.send('Hello ')
