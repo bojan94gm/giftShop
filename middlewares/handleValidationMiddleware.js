@@ -57,3 +57,11 @@ export const validateLogin = withValidationErrors([
     .withMessage('password is required')
     .isLength({ min: 8 }),
 ])
+
+export const validateCategory = withValidationErrors([
+  body('name')
+    .notEmpty()
+    .withMessage('name is required')
+    .isLength({ min: 2, max: 50 })
+    .withMessage('category name must be between 2 and 50 characters long'),
+])
