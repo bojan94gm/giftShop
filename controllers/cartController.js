@@ -1,6 +1,7 @@
 import { StatusCodes } from 'http-status-codes'
 import Cart from '../models/Cart.js'
 import { BadRequestError, NotFoundError } from '../errors/errors.js'
+import { calculateTotalCartPrice } from '../utils/cartTotal.js'
 
 export const createCart = async (req, res) => {
   const cart = await Cart.create({
@@ -11,6 +12,10 @@ export const createCart = async (req, res) => {
   if (!cart) {
     throw new BadRequestError('Cart is not created')
   }
+
+  const total = await calculateTotalCartPrice(cart)
+  cart.total = total
+  await cart.save()
 
   res.status(StatusCodes.CREATED).json({ msg: 'Created cart', cart })
 }
@@ -25,7 +30,9 @@ export const getCart = async (req, res) => {
     if (!cart) {
       throw new BadRequestError('Cart is not found')
     }
-
+    const total = await calculateTotalCartPrice(cart)
+    cart.total = total
+    await cart.save()
     res.status(StatusCodes.OK).json({ cart })
   } catch (error) {
     console.log(error)
@@ -53,9 +60,13 @@ export const updateCart = async (req, res) => {
       throw new NotFoundError('Cart or product not found')
     }
 
+    const total = await calculateTotalCartPrice(cart)
+    cart.total = total
+    await cart.save()
+
     res.status(StatusCodes.OK).json({ msg: 'Updated cart', cart })
   } catch (error) {
-    throw new BadRequestError('Cart is not updated')
+    throw error
   }
 }
 
