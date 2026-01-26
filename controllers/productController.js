@@ -7,6 +7,7 @@ export const createProduct = async (req, res) => {
     const product = await Product.create(req.body)
     res.status(StatusCodes.CREATED).json({ product })
   } catch (error) {
+    console.log(error)
     throw new BadRequestError('Product is not created')
   }
 }

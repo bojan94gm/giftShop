@@ -26,7 +26,6 @@ export const login = async (req, res) => {
     setCookie(res, token, day)
 
     res.status(StatusCodes.OK).json({ user, token })
-    console.log('user logged in')
   } catch (error) {
     console.log(error)
     res.status(error.statusCode).json({ msg: error.message })
@@ -46,7 +45,6 @@ export const register = async (req, res) => {
 }
 
 export const logout = async (req, res) => {
-  console.log({ msg: 'TOKEN BEFORE CLEAR:', token: req.cookies?.token })
   clearCookie(res)
   res.status(StatusCodes.OK).json({ msg: 'User is logged out' })
 }
