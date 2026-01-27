@@ -2,6 +2,7 @@ import { StatusCodes } from 'http-status-codes'
 import Cart from '../models/Cart.js'
 import { BadRequestError, NotFoundError } from '../errors/errors.js'
 import { calculateTotalCartPrice } from '../utils/cartTotal.js'
+import mongoose from 'mongoose'
 
 export const createCart = async (req, res) => {
   const cart = await Cart.create({
@@ -30,9 +31,7 @@ export const getCart = async (req, res) => {
     if (!cart) {
       throw new BadRequestError('Cart is not found')
     }
-    const total = await calculateTotalCartPrice(cart)
-    cart.total = total
-    await cart.save()
+    await calculateTotalCartPrice(cart)
     res.status(StatusCodes.OK).json({ cart })
   } catch (error) {
     console.log(error)
@@ -60,9 +59,7 @@ export const updateCart = async (req, res) => {
       throw new NotFoundError('Cart or product not found')
     }
 
-    const total = await calculateTotalCartPrice(cart)
-    cart.total = total
-    await cart.save()
+    await calculateTotalCartPrice(cart)
 
     res.status(StatusCodes.OK).json({ msg: 'Updated cart', cart })
   } catch (error) {
@@ -89,9 +86,11 @@ export const addProductToCart = async (req, res) => {
   if (!req.params.id) throw new BadRequestError('Cart ID is required')
   if (!product) throw new BadRequestError('Product id is required')
 
-  const numQuantity = Number(quantity)
+  console.log(typeof product, typeof quantity)
 
-  if (numQuantity < 1 || !Number.isInteger(numQuantity))
+  const numQuantity = parseInt(quantity)
+
+  if (numQuantity < 1 || !Number(numQuantity))
     throw new BadRequestError('Quantity must be integer larger than 0')
 
   try {
@@ -109,6 +108,7 @@ export const addProductToCart = async (req, res) => {
     )
 
     if (updatedCart) {
+      await calculateTotalCartPrice(updatedCart)
       return res
         .status(StatusCodes.OK)
         .json({ msg: 'Product added to cart', updatedCart })
@@ -129,6 +129,8 @@ export const addProductToCart = async (req, res) => {
       throw new NotFoundError('Cart is not found')
     }
 
+    await calculateTotalCartPrice(pushedCart)
+
     res
       .status(StatusCodes.OK)
       .json({ msg: 'Product added to cart', pushedCart })
@@ -139,8 +141,10 @@ export const addProductToCart = async (req, res) => {
 }
 
 export const deleteProductFromCart = async (req, res) => {
+  console.log('bla bla')
+
   const productId = new mongoose.Types.ObjectId(req.body.product)
-  const quantity = Number(req.body.quantity)
+  const quantity = parseInt(req.body.quantity)
 
   if (!Number.isInteger(quantity) || quantity < 1) {
     throw new BadRequestError('quantity must be integer number greater than 0')
@@ -172,11 +176,16 @@ export const deleteProductFromCart = async (req, res) => {
         { new: true },
       )
 
+      await calculateTotalCartPrice(productRemovedFromCart)
+
       return res.status(StatusCodes.OK).json({
         msg: 'Product removed from cart',
         cart: productRemovedFromCart,
       })
     }
+
+    await calculateTotalCartPrice(updatedCart)
+
     return res.status(StatusCodes.OK).json({
       msg: 'Product quantity decremented from cart',
       cart: updatedCart,
