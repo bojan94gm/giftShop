@@ -208,6 +208,8 @@ export const clearCart = async (req, res) => {
       throw new NotFoundError('Cart is not found')
     }
 
+    await calculateTotalCartPrice(clearedCart)
+
     return res.status(StatusCodes.OK).json({
       msg: 'Cart is cleared',
       cart: clearedCart,
