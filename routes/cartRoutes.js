@@ -6,6 +6,7 @@ import {
   updateCart,
   addProductToCart,
   deleteProductFromCart,
+  clearCart,
 } from '../controllers/cartController.js'
 
 const router = Router()
@@ -16,5 +17,6 @@ router.patch('/:id', updateCart)
 router.delete('/:id', deleteCart)
 router.patch('/add/:id', addProductToCart)
 router.patch('/remove/:id', deleteProductFromCart)
+router.patch('/clear/:id', clearCart)
 
 export default router
