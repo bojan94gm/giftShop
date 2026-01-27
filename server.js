@@ -28,14 +28,13 @@ import { authorizationMiddleware } from './middlewares/authorizationMiddleware.j
 import { authenticationMiddleware } from './middlewares/handleAuthMiddleware.js'
 
 app.use('/api/v1/auth', authRouter)
+app.use('/api/v1/cart', authenticationMiddleware, cartRouter)
 app.use(
   '/api/v1/products',
   authenticationMiddleware,
   authorizationMiddleware,
   productRouter,
 )
-app.use('/api/v1/cart', authenticationMiddleware, cartRouter)
-
 app.use(
   '/api/v1/category',
   authenticationMiddleware,
