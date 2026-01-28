@@ -29,41 +29,14 @@ export const getCart = async (req, res) => {
     })
 
     if (!cart) {
-      throw new BadRequestError('Cart is not found')
+      return res
+        .status(StatusCodes.NOT_FOUND)
+        .json({ msg: 'Cart is not found' })
     }
     await calculateTotalCartPrice(cart)
     res.status(StatusCodes.OK).json({ cart })
   } catch (error) {
     console.log(error)
-  }
-}
-
-export const updateCart = async (req, res) => {
-  const quantity = Number(req.body.quantity)
-  if (!Number.isInteger(quantity)) {
-    throw new BadRequestError('Quantity is not integer')
-  }
-
-  try {
-    const cart = await Cart.findOneAndUpdate(
-      {
-        _id: req.params.id,
-        userId: req.user.userId,
-        'products.product': req.body.product,
-      },
-      { $inc: { 'products.$.quantity': quantity } },
-      { new: true },
-    )
-
-    if (!cart) {
-      throw new NotFoundError('Cart or product not found')
-    }
-
-    await calculateTotalCartPrice(cart)
-
-    res.status(StatusCodes.OK).json({ msg: 'Updated cart', cart })
-  } catch (error) {
-    throw error
   }
 }
 
@@ -90,7 +63,7 @@ export const addProductToCart = async (req, res) => {
 
   const numQuantity = parseInt(quantity)
 
-  if (numQuantity < 1 || !Number(numQuantity))
+  if (numQuantity < 1 || !Number.isInteger(numQuantity))
     throw new BadRequestError('Quantity must be integer larger than 0')
 
   try {
@@ -118,6 +91,7 @@ export const addProductToCart = async (req, res) => {
       {
         _id: req.params.id,
         userId: req.user.userId,
+        'products.product': { $ne: productId },
       },
       {
         $push: { products: { product: productId, quantity: numQuantity } },
@@ -141,8 +115,6 @@ export const addProductToCart = async (req, res) => {
 }
 
 export const deleteProductFromCart = async (req, res) => {
-  console.log('bla bla')
-
   const productId = new mongoose.Types.ObjectId(req.body.product)
   const quantity = parseInt(req.body.quantity)
 
