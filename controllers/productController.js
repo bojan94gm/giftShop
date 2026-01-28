@@ -8,6 +8,7 @@ export const createProduct = async (req, res) => {
     res.status(StatusCodes.CREATED).json({ product })
   } catch (error) {
     console.log(error)
+    console.log(error)
     throw new BadRequestError('Product is not created')
   }
 }
@@ -22,12 +23,10 @@ export const getAllProducts = async (req, res) => {
 }
 
 export const getProduct = async (req, res) => {
-  try {
-    const product = await Product.findById(req.params.id)
-    res.status(StatusCodes.OK).json({ product })
-  } catch (error) {
-    throw new BadRequestError(`Product with id${req.params} is not found`)
-  }
+  const product = await Product.findById(req.params.id)
+  if (!product)
+    throw new BadRequestError(`Product with id${req.params.id} is not found`)
+  res.status(StatusCodes.OK).json({ product })
 }
 
 export const updateProduct = async (req, res) => {
@@ -38,6 +37,7 @@ export const updateProduct = async (req, res) => {
     })
     res.status(StatusCodes.OK).json({ product })
   } catch (error) {
+    console.log(error)
     throw new BadRequestError(`Updating product has failed`)
   }
 }

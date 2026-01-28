@@ -1,4 +1,4 @@
-import { BadRequestError } from '../errors/errors.js'
+import { BadRequestError, NotFoundError } from '../errors/errors.js'
 import Cart from '../models/Cart.js'
 
 export const calculateTotalCartPrice = async (cart) => {

@@ -32,6 +32,4 @@ const CartSchema = new mongoose.Schema(
   { timestamps: true },
 )
 
-CartSchema.index({ userId: 1, 'products.product': 1 }, { unique: true })
-
 export default new mongoose.model('Cart', CartSchema)
