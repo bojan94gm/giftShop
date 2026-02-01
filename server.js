@@ -21,6 +21,7 @@ import authRouter from './routes/authRoutes.js'
 import productRouter from './routes/productRoutes.js'
 import cartRouter from './routes/cartRoutes.js'
 import categoryRouter from './routes/categoryRoutes.js'
+import orderRouter from './routes/orderRoutes.js'
 
 //Middlewares
 import { handleErrorsMiddleware } from './middlewares/handleErrorsMiddleware.js'
@@ -41,6 +42,8 @@ app.use(
   authorizationMiddleware,
   categoryRouter,
 )
+
+app.use('/api/v1/orders', authenticationMiddleware, orderRouter)
 
 app.get('/', (req, res) => {
   res.send('Hello ')

@@ -1,7 +1,7 @@
 import { StatusCodes } from 'http-status-codes'
 import Cart from '../models/Cart.js'
 import { BadRequestError, NotFoundError } from '../errors/errors.js'
-import { calculateTotalCartPrice } from '../utils/cartTotal.js'
+import { calculateTotalCartPrice } from '../utils/cartUtils.js'
 import mongoose from 'mongoose'
 
 export const createCart = async (req, res) => {
@@ -16,6 +16,7 @@ export const createCart = async (req, res) => {
 
   const total = await calculateTotalCartPrice(cart)
   cart.total = total
+  console.log(total)
   await cart.save()
 
   res.status(StatusCodes.CREATED).json({ msg: 'Created cart', cart })
@@ -37,6 +38,7 @@ export const getCart = async (req, res) => {
     res.status(StatusCodes.OK).json({ cart })
   } catch (error) {
     console.log(error)
+    throw error
   }
 }
 
