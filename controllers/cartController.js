@@ -1,25 +1,63 @@
 import { StatusCodes } from 'http-status-codes'
 import Cart from '../models/Cart.js'
+import Product from '../models/Product.js'
 import { BadRequestError, NotFoundError } from '../errors/errors.js'
-import { calculateTotalCartPrice } from '../utils/cartUtils.js'
+import {
+  validateAndCalculateCartData,
+  recalculateTotalCartPrice,
+} from '../utils/cartUtils.js'
 import mongoose from 'mongoose'
 
 export const createCart = async (req, res) => {
-  const cart = await Cart.create({
-    userId: req.user.userId,
-    products: req.body.products,
-  })
+  //proveriti kako se ponasa reservedQuantity kad dve razlitice korpe iste proizvode porucuju,
+  // proveriti kako reservedQuantity funckionise i kod update cart
 
-  if (!cart) {
-    throw new BadRequestError('Cart is not created')
+  const session = await mongoose.startSession()
+
+  try {
+    session.startTransaction()
+
+    const validCart = await validateAndCalculateCartData(req.body)
+
+    const cart = await Cart.create({
+      userId: req.user.userId,
+      products: validCart.products,
+    })
+
+    if (!cart) {
+      throw new BadRequestError('Cart is not created')
+    }
+
+    const bulkOperations = validCart.products.map((item) => ({
+      updateOne: {
+        filter: {
+          _id: item.product,
+          stock: {
+            $gte: item.quantity,
+          },
+        },
+        update: {
+          $inc: { reservedQuantity: item.quantity },
+        },
+      },
+    }))
+
+    const result = await Product.bulkWrite(bulkOperations, { session })
+
+    if (result.matchedCount !== validCart.products.length) {
+      throw new Error('Some products are out of stock')
+    }
+
+    await session.commitTransaction()
+
+    res.status(StatusCodes.CREATED).json({ msg: 'Created cart', cart })
+  } catch (error) {
+    console.log(error)
+    session.abortTransaction()
+    throw error
+  } finally {
+    session.endSession()
   }
-
-  const total = await calculateTotalCartPrice(cart)
-  cart.total = total
-  console.log(total)
-  await cart.save()
-
-  res.status(StatusCodes.CREATED).json({ msg: 'Created cart', cart })
 }
 
 export const getCart = async (req, res) => {
@@ -34,7 +72,7 @@ export const getCart = async (req, res) => {
         .status(StatusCodes.NOT_FOUND)
         .json({ msg: 'Cart is not found' })
     }
-    await calculateTotalCartPrice(cart)
+    await recalculateTotalCartPrice(cart)
     res.status(StatusCodes.OK).json({ cart })
   } catch (error) {
     console.log(error)
@@ -83,7 +121,7 @@ export const addProductToCart = async (req, res) => {
     )
 
     if (updatedCart) {
-      await calculateTotalCartPrice(updatedCart)
+      await recalculateTotalCartPrice(updatedCart)
       return res
         .status(StatusCodes.OK)
         .json({ msg: 'Product added to cart', updatedCart })
@@ -105,7 +143,7 @@ export const addProductToCart = async (req, res) => {
       throw new NotFoundError('Cart is not found')
     }
 
-    await calculateTotalCartPrice(pushedCart)
+    await recalculateTotalCartPrice(pushedCart)
 
     res
       .status(StatusCodes.OK)
@@ -150,7 +188,7 @@ export const deleteProductFromCart = async (req, res) => {
         { new: true },
       )
 
-      await calculateTotalCartPrice(productRemovedFromCart)
+      await recalculateTotalCartPrice(productRemovedFromCart)
 
       return res.status(StatusCodes.OK).json({
         msg: 'Product removed from cart',
@@ -158,7 +196,7 @@ export const deleteProductFromCart = async (req, res) => {
       })
     }
 
-    await calculateTotalCartPrice(updatedCart)
+    await recalculateTotalCartPrice(updatedCart)
 
     return res.status(StatusCodes.OK).json({
       msg: 'Product quantity decremented from cart',
@@ -182,7 +220,7 @@ export const clearCart = async (req, res) => {
       throw new NotFoundError('Cart is not found')
     }
 
-    await calculateTotalCartPrice(clearedCart)
+    await recalculateTotalCartPrice(clearedCart)
 
     return res.status(StatusCodes.OK).json({
       msg: 'Cart is cleared',

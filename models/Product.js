@@ -23,6 +23,11 @@ const ProductSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    reservedQuantity: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     sku: {
       type: String,
       unique: true,
