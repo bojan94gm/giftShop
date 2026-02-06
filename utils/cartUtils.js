@@ -1,5 +1,4 @@
 import { BadRequestError } from '../errors/errors.js'
-import Cart from '../models/Cart.js'
 import Product from '../models/Product.js'
 
 export const validateAndCalculateCartData = async (cart) => {
@@ -10,7 +9,7 @@ export const validateAndCalculateCartData = async (cart) => {
   )
 
   if (products.length !== cart.products.length) {
-    throw new BadRequestError('Cart is not valid')
+    throw new Error('Cart is not valid')
   }
 
   let total = 0
@@ -33,7 +32,7 @@ export const validateAndCalculateCartData = async (cart) => {
     }
 
     if (requestedQuantity > product.stock) {
-      throw new BadRequestError(
+      throw new Error(
         `Quantity of ${requestedQuantity} items of ${product.name} product is not available, current stock is: ${product.stock}`,
       )
     }
@@ -45,23 +44,16 @@ export const validateAndCalculateCartData = async (cart) => {
   return cart
 }
 
-export const recalculateTotalCartPrice = async (cart) => {
-  const populatedCart = await Cart.findById(cart._id).populate(
-    'products.product',
-  )
-
-  const total = populatedCart.products.reduce((acc, item) => {
-    return acc + item.product.price * item.quantity
-  }, 0)
-
-  cart.total = total
-
-  try {
-    await cart.save()
-  } catch (error) {
-    console.log(error)
-    throw new BadRequestError('Failed to update products in cart')
-  }
-
-  return cart
+export const reservedQuantityRollBack = async (cart) => {
+  const rollBackOps = cart.products.map((item) => ({
+    updateOne: {
+      filter: {
+        _id: item.product,
+      },
+      update: {
+        $inc: { reservedQuantity: -Number(item.quantity) },
+      },
+    },
+  }))
+  return rollBackOps
 }
