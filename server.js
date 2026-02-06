@@ -3,6 +3,7 @@ import * as dotenv from 'dotenv'
 import 'express-async-errors'
 import morgan from 'morgan'
 import mongoose from 'mongoose'
+import cors from 'cors'
 dotenv.config()
 const app = express()
 app.use(express.json())
@@ -12,6 +13,13 @@ if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'))
 }
 app.use(express.urlencoded({ extended: true }))
+
+app.use(
+  cors({
+    origin: 'http://localhost:3000',
+    credentials: true,
+  }),
+)
 
 //Errors
 import { NotFoundError } from './errors/errors.js'
@@ -30,12 +38,7 @@ import { authenticationMiddleware } from './middlewares/handleAuthMiddleware.js'
 
 app.use('/api/v1/auth', authRouter)
 app.use('/api/v1/cart', authenticationMiddleware, cartRouter)
-app.use(
-  '/api/v1/products',
-  authenticationMiddleware,
-  authorizationMiddleware,
-  productRouter,
-)
+app.use('/api/v1/products', productRouter)
 app.use(
   '/api/v1/category',
   authenticationMiddleware,
