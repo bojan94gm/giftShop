@@ -2,10 +2,7 @@ import { StatusCodes } from 'http-status-codes'
 import Cart from '../models/Cart.js'
 import Product from '../models/Product.js'
 import { BadRequestError, NotFoundError } from '../errors/errors.js'
-import {
-  validateAndCalculateCartData,
-  reservedQuantityRollBack,
-} from '../utils/cartUtils.js'
+import { validateAndCalculateCartData } from '../utils/cartUtils.js'
 import mongoose from 'mongoose'
 
 export const upsertCart = async (req, res) => {

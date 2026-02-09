@@ -14,8 +14,14 @@ export const createProduct = async (req, res) => {
 }
 
 export const getAllProducts = async (req, res) => {
+  const queryObject = {}
+
+  if (req.query.featured === 'true') {
+    queryObject.featured = true
+  }
+
   try {
-    const products = await Product.find({})
+    const products = await Product.find(queryObject)
     res.status(StatusCodes.OK).json({ products })
   } catch (error) {
     throw new BadRequestError('Fetching products have failed')
