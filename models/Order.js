@@ -31,7 +31,7 @@ const OrderSchema = new mongoose.Schema(
     paymentMethod: {
       type: String,
       enum: ['card', 'cash'],
-      default: 'card',
+      default: 'cash',
     },
     customer: {
       name: {
@@ -82,7 +82,13 @@ const OrderSchema = new mongoose.Schema(
       enum: ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'],
       default: 'pending',
     },
+    paymentStatus: {
+      type: String,
+      enum: ['paid', 'unpaid'],
+      default: 'unpaid',
+    },
   },
+
   { timestamps: true },
 )
 

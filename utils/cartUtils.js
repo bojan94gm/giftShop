@@ -43,17 +43,3 @@ export const validateAndCalculateCartData = async (cart) => {
   cart.total = total
   return cart
 }
-
-export const reservedQuantityRollBack = async (cart) => {
-  const rollBackOps = cart.products.map((item) => ({
-    updateOne: {
-      filter: {
-        _id: item.product,
-      },
-      update: {
-        $inc: { reservedQuantity: -Number(item.quantity) },
-      },
-    },
-  }))
-  return rollBackOps
-}

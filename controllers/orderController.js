@@ -1,7 +1,14 @@
 import { StatusCodes } from 'http-status-codes'
 import { BadRequestError, UnauthenticatedError } from '../errors/errors.js'
 import Order from '../models/Order.js'
-import { getOrderInfo } from '../utils/orderUtils.js'
+import Product from '../models/Product.js'
+import { getOrderInfo, reserveQuantityOps } from '../utils/orderUtils.js'
+import {
+  decreaseStockQuantity,
+  reservedQuantityRollBack,
+} from '../utils/orderUtils.js'
+import mongoose from 'mongoose'
+import Cart from '../models/Cart.js'
 
 export const createOrder = async (req, res) => {
   const { customer, paymentMethod } = req.body
@@ -17,7 +24,23 @@ export const createOrder = async (req, res) => {
       customer,
     )
     const order = await Order.create(orderInfo)
-    res.status(StatusCodes.CREATED).json({ order })
+    if (!order) throw new Error('Order is not created')
+
+    const clearedCart = await Cart.findOneAndUpdate(
+      {
+        userId: req.user.userId,
+      },
+      {
+        $set: {
+          products: [],
+          total: 0,
+        },
+      },
+    )
+
+    if (!clearedCart) throw new Error('Clearing cart after order failed')
+
+    res.status(StatusCodes.CREATED).json({ msg: 'Order created' })
   } catch (error) {
     console.log(error)
     throw error
@@ -34,6 +57,110 @@ export const getOrder = async (req, res) => {
   }
 }
 
-export const updateOrder = (req, res) => {}
+export const updateOrder = async (req, res) => {
+  if (!req.body.status) throw new BadRequestError('Invalid order status')
 
-export const deleteOrder = (req, res) => {}
+  const session = await mongoose.startSession()
+  try {
+    await session.startTransaction()
+
+    if (req.body.status === 'confirmed') {
+      const updatedOrder = await Order.findByIdAndUpdate(
+        { _id: req.params.id },
+
+        { $set: { status: 'confirmed', paymentStatus: 'unpaid' } },
+        { new: true, runValidators: true, session },
+      )
+      const reserveOps = reserveQuantityOps(updatedOrder.products)
+
+      const result = await Product.bulkWrite(reserveOps, { session })
+      if (result.matchedCount === 0)
+        throw new Error('Adding quantity to reserved quantity failed')
+      await session.commitTransaction()
+
+      return res
+        .status(StatusCodes.OK)
+        .json({ msg: 'Order confirmed', updatedOrder })
+    }
+
+    if (req.body.status === 'shipped') {
+      const updatedOrder = await Order.findByIdAndUpdate(
+        { _id: req.params.id },
+
+        { $set: { status: 'shipped', paymentStatus: 'unpaid' } },
+        { new: true, runValidators: true, session },
+      )
+
+      return res
+        .status(StatusCodes.OK)
+        .json({ msg: 'Order is shipped', updatedOrder })
+    }
+
+    if (req.body.status === 'delivered') {
+      const updatedOrder = await Order.findByIdAndUpdate(
+        { _id: req.params.id },
+
+        { $set: { status: 'delivered', paymentStatus: 'paid' } },
+        { new: true, runValidators: true, session },
+      )
+
+      const stockOps = decreaseStockQuantity(updatedOrder.products)
+
+      const result = await Product.bulkWrite(stockOps, { session })
+      if (result.matchedCount === 0)
+        throw new Error('Rolling back products stock failed')
+      await session.commitTransaction()
+      return res.status(StatusCodes.OK).json({ updatedOrder })
+    }
+
+    if (req.body.status === 'cancelled') {
+      const updatedOrder = await Order.findByIdAndUpdate(
+        { _id: req.params.id },
+
+        { $set: { status: 'cancelled', paymentStatus: 'unpaid' } },
+        { new: true, runValidators: true, session },
+      )
+
+      const rollBackOps = reservedQuantityRollBack(updatedOrder.products)
+
+      const result = await Product.bulkWrite(rollBackOps, { session })
+      if (result.matchedCount === 0)
+        throw new Error('Rolling back products stock failed')
+      await session.commitTransaction()
+      return res.status(StatusCodes.OK).json({ updatedOrder })
+    }
+
+    throw new BadRequestError('Unsupported order status')
+  } catch (error) {
+    console.log(error)
+    await session.abortTransaction()
+    throw error
+  } finally {
+    await session.endSession()
+  }
+}
+
+export const getAllOrders = async (req, res) => {
+  try {
+    const orders = await Order.find()
+    if (!orders) {
+      throw new BadRequestError('Orders not found')
+    }
+
+    res.status(StatusCodes.OK).json({ orders })
+  } catch (error) {
+    console.log(error)
+    throw error
+  }
+}
+
+export const getMyOrders = async (req, res) => {
+  try {
+    const orders = await Order.find({ userId: req.user.userId })
+    if (!orders) throw new BadRequestError('Orders not found')
+    res.status(StatusCodes.OK).json({ orders })
+  } catch (error) {
+    console.log(error)
+    throw error
+  }
+}
