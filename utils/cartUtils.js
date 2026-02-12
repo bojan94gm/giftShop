@@ -5,7 +5,7 @@ export const validateAndCalculateCartData = async (cart) => {
   const ids = cart.products.map((item) => item.product)
 
   const products = await Product.find({ _id: { $in: ids } }).select(
-    'name stock price',
+    'name stock price reservedQuantity ',
   )
 
   if (products.length !== cart.products.length) {
@@ -31,9 +31,9 @@ export const validateAndCalculateCartData = async (cart) => {
       )
     }
 
-    if (requestedQuantity > product.stock) {
+    if (requestedQuantity > product.stock - product.reservedQuantity) {
       throw new Error(
-        `Quantity of ${requestedQuantity} items of ${product.name} product is not available, current stock is: ${product.stock}`,
+        `Quantity of ${requestedQuantity} items of ${product.name} product is not available, current stock is: ${product.stock - product.reservedQuantity}`,
       )
     }
 
