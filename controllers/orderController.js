@@ -2,7 +2,11 @@ import { StatusCodes } from 'http-status-codes'
 import { BadRequestError, UnauthenticatedError } from '../errors/errors.js'
 import Order from '../models/Order.js'
 import Product from '../models/Product.js'
-import { getOrderInfo, reserveQuantityOps } from '../utils/orderUtils.js'
+import {
+  getOrderInfo,
+  increaseStockQuantity,
+  reserveQuantityOps,
+} from '../utils/orderUtils.js'
 import {
   decreaseStockQuantity,
   reservedQuantityRollBack,
@@ -65,12 +69,17 @@ export const updateOrder = async (req, res) => {
     await session.startTransaction()
 
     if (req.body.status === 'confirmed') {
-      const updatedOrder = await Order.findByIdAndUpdate(
-        { _id: req.params.id },
+      const updatedOrder = await Order.findOneAndUpdate(
+        { _id: req.params.id, status: 'pending' },
 
         { $set: { status: 'confirmed', paymentStatus: 'unpaid' } },
         { new: true, runValidators: true, session },
       )
+
+      if (!updatedOrder) {
+        throw new BadRequestError('Order status must be pending')
+      }
+
       const reserveOps = reserveQuantityOps(updatedOrder.products)
 
       const result = await Product.bulkWrite(reserveOps, { session })
@@ -84,12 +93,16 @@ export const updateOrder = async (req, res) => {
     }
 
     if (req.body.status === 'shipped') {
-      const updatedOrder = await Order.findByIdAndUpdate(
-        { _id: req.params.id },
-
+      const updatedOrder = await Order.findOneAndUpdate(
+        { _id: req.params.id, status: 'confirmed' },
         { $set: { status: 'shipped', paymentStatus: 'unpaid' } },
         { new: true, runValidators: true, session },
       )
+      if (!updatedOrder) {
+        throw new BadRequestError('Order status must be first confirmed')
+      }
+
+      await session.commitTransaction()
 
       return res
         .status(StatusCodes.OK)
@@ -97,12 +110,16 @@ export const updateOrder = async (req, res) => {
     }
 
     if (req.body.status === 'delivered') {
-      const updatedOrder = await Order.findByIdAndUpdate(
-        { _id: req.params.id },
+      const updatedOrder = await Order.findOneAndUpdate(
+        { _id: req.params.id, status: 'shipped' },
 
         { $set: { status: 'delivered', paymentStatus: 'paid' } },
         { new: true, runValidators: true, session },
       )
+
+      if (!updatedOrder) {
+        throw new BadRequestError('Order status must be first shipped')
+      }
 
       const stockOps = decreaseStockQuantity(updatedOrder.products)
 
@@ -114,12 +131,21 @@ export const updateOrder = async (req, res) => {
     }
 
     if (req.body.status === 'cancelled') {
-      const updatedOrder = await Order.findByIdAndUpdate(
-        { _id: req.params.id },
+      const updatedOrder = await Order.findOneAndUpdate(
+        {
+          _id: req.params.id,
+          status: { $in: ['confirmed', 'shipped'] },
+        },
 
         { $set: { status: 'cancelled', paymentStatus: 'unpaid' } },
         { new: true, runValidators: true, session },
       )
+
+      if (!updatedOrder) {
+        throw new BadRequestError(
+          'To cancel order, status must be confirmed or shipped',
+        )
+      }
 
       const rollBackOps = reservedQuantityRollBack(updatedOrder.products)
 
@@ -162,5 +188,50 @@ export const getMyOrders = async (req, res) => {
   } catch (error) {
     console.log(error)
     throw error
+  }
+}
+
+export const resetOrderStatus = async (req, res) => {
+  const session = await mongoose.startSession()
+
+  try {
+    await session.startTransaction()
+
+    const order = await Order.findByIdAndUpdate(
+      { _id: req.params.id },
+      {
+        $set: { status: 'pending', paymentStatus: 'unpaid' },
+      },
+      { session },
+    )
+
+    if (!order) throw new BadRequestError('Order not found')
+
+    if (['confirmed', 'shipped'].includes(order.status)) {
+      const rollBackOps = await reservedQuantityRollBack(order.products)
+
+      const result = await Product.bulkWrite(rollBackOps, { session })
+
+      if (result.matchedCount !== order.products.length)
+        throw new Error('Reset reserved quantity failed')
+    }
+
+    if (order.status === 'delivered') {
+      const increaseStockOps = await increaseStockQuantity(order.products)
+
+      const result = await Product.bulkWrite(increaseStockOps, { session })
+
+      if (result.matchedCount !== order.products.length)
+        throw new Error('Increase stock quantity failed')
+    }
+
+    await session.commitTransaction()
+    res.status(StatusCodes.OK).json({ order })
+  } catch (error) {
+    console.log(error)
+    await session.abortTransaction()
+    throw new Error('Reset order failed')
+  } finally {
+    await session.endSession()
   }
 }

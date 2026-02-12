@@ -28,7 +28,6 @@ export const getOrderInfo = async (userId, paymentMethod, customer) => {
 }
 
 export const reserveQuantityOps = (products) => {
-  console.log(products)
   const reserveOps = products.map((item) => ({
     updateOne: {
       filter: {
@@ -48,7 +47,7 @@ export const reserveQuantityOps = (products) => {
   return reserveOps
 }
 
-export const reservedQuantityRollBack = (products) => {
+export const reservedQuantityRollBack = (products, resetStatus = 0) => {
   const rollBackOps = products.map((item) => ({
     updateOne: {
       filter: {
@@ -79,4 +78,21 @@ export const decreaseStockQuantity = (products) => {
   }))
 
   return decreaseOps
+}
+
+export const increaseStockQuantity = (products) => {
+  const increaseOps = products.map((item) => ({
+    updateOne: {
+      filter: {
+        _id: item.productId,
+      },
+      update: {
+        $inc: {
+          stock: Number(item.quantity),
+        },
+      },
+    },
+  }))
+
+  return increaseOps
 }
