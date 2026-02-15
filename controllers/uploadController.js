@@ -27,10 +27,11 @@ export const uploadImages = async (req, res) => {
     uploadDir,
     `${uniqueImageName}-${uploadedImage.name}`,
   )
+  console.log(imagePath)
 
   await uploadedImage.mv(imagePath)
 
   res.status(StatusCodes.CREATED).json({
-    image: { src: `/uploads/${uploadedImage.name}` },
+    image: { src: `/uploads/${uniqueImageName}-${uploadedImage.name}` },
   })
 }
