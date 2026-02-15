@@ -4,9 +4,12 @@ import 'express-async-errors'
 import morgan from 'morgan'
 import mongoose from 'mongoose'
 import cors from 'cors'
+import fileUpload from 'express-fileupload'
 dotenv.config()
 const app = express()
+app.use(express.static('public'))
 app.use(express.json())
+app.use(fileUpload())
 import cookieParser from 'cookie-parser'
 app.use(cookieParser())
 if (process.env.NODE_ENV === 'development') {
