@@ -21,17 +21,13 @@ export const uploadImages = async (req, res) => {
 
   if (uploadedImage.size > maxSize)
     throw new BadRequestError('Image file is too large')
-
+  const name = `${uniqueImageName}-${uploadedImage.name}`
   const uploadDir = path.join(__dirname, '../public/uploads')
-  const imagePath = path.join(
-    uploadDir,
-    `${uniqueImageName}-${uploadedImage.name}`,
-  )
-  console.log(imagePath)
+  const imagePath = path.join(uploadDir, name)
 
   await uploadedImage.mv(imagePath)
 
   res.status(StatusCodes.CREATED).json({
-    image: { src: `/uploads/${uniqueImageName}-${uploadedImage.name}` },
+    image: { src: `/uploads/${name}` },
   })
 }
