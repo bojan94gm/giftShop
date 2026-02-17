@@ -8,7 +8,6 @@ export const createProduct = async (req, res) => {
     res.status(StatusCodes.CREATED).json({ product })
   } catch (error) {
     console.log(error)
-    console.log(error)
     throw new BadRequestError('Product is not created')
   }
 }
@@ -16,13 +15,48 @@ export const createProduct = async (req, res) => {
 export const getAllProducts = async (req, res) => {
   const queryObject = {}
 
-  if (req.query.featured === 'true') {
-    queryObject.featured = true
+  const { search, featured, tags, sort, minPrice, maxPrice } = req.query
+
+  if (search) {
+    queryObject.name = { $regex: search, $options: 'i' }
   }
 
+  if (featured) {
+    queryObject.featured = featured.toString()
+  }
+
+  if (tags) {
+    const tagsList = tags.split(',')
+    queryObject.tags = { $all: tagsList }
+  }
+
+  if (minPrice) {
+    queryObject.price = { $gte: Number(minPrice) }
+  }
+
+  if (maxPrice) {
+    queryObject.price = { $lte: Number(maxPrice) }
+  }
+
+  if (minPrice && maxPrice) {
+    queryObject.price = {
+      $gte: Number(minPrice),
+      $lte: Number(maxPrice),
+    }
+  }
+
+  const sortOptions = {
+    newest: '-createdAt',
+    oldest: 'createdAt',
+    'a-z': 'name',
+    'z-a': '-name',
+  }
+
+  const sortKey = sortOptions[sort] || sortOptions.newest
+
   try {
-    const products = await Product.find(queryObject)
-    res.status(StatusCodes.OK).json({ products })
+    const products = await Product.find(queryObject).sort(sortKey)
+    res.status(StatusCodes.OK).json({ products, numOfHits: products.length })
   } catch (error) {
     throw new BadRequestError('Fetching products have failed')
   }
