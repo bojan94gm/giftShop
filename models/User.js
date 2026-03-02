@@ -19,8 +19,18 @@ const UserSchema = new mongoose.Schema(
       type: String,
       default: 'user',
     },
+    verificationToken: {
+      type: String,
+    },
+    isVerified: {
+      type: Boolean,
+      default: false,
+    },
+    verified: {
+      type: Date,
+    },
   },
-  { timestamps: true }
+  { timestamps: true },
 )
 
 export default mongoose.model('User', UserSchema)
