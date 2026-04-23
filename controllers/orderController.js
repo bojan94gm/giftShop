@@ -1,5 +1,9 @@
 import { StatusCodes } from 'http-status-codes'
-import { BadRequestError, UnauthenticatedError } from '../errors/errors.js'
+import {
+  BadRequestError,
+  NotFoundError,
+  UnauthorizedError,
+} from '../errors/errors.js'
 import Order from '../models/Order.js'
 import Product from '../models/Product.js'
 import {
@@ -46,19 +50,25 @@ export const createOrder = async (req, res) => {
 
     res.status(StatusCodes.CREATED).json({ msg: 'Order created' })
   } catch (error) {
-    console.log(error)
     throw error
   }
 }
 
 export const getOrder = async (req, res) => {
-  try {
-    const order = await Order.findById(req.params.id)
-    res.status(StatusCodes.CREATED).json({ order })
-  } catch (error) {
-    console.log(error)
-    throw error
+  const order = await Order.findById(req.params.id)
+
+  if (!order) {
+    throw new NotFoundError('Order is not found')
   }
+
+  const isAdmin = req.user.role === 'admin'
+  const isOwner = order.userId?.toString() === req.user.userId
+
+  if (!isAdmin && !isOwner) {
+    throw new UnauthorizedError('Order access denied')
+  }
+
+  res.status(StatusCodes.OK).json({ order })
 }
 
 export const updateOrder = async (req, res) => {
@@ -158,7 +168,6 @@ export const updateOrder = async (req, res) => {
 
     throw new BadRequestError('Unsupported order status')
   } catch (error) {
-    console.log(error)
     await session.abortTransaction()
     throw error
   } finally {
@@ -167,28 +176,28 @@ export const updateOrder = async (req, res) => {
 }
 
 export const getAllOrders = async (req, res) => {
-  try {
-    const orders = await Order.find()
-    if (!orders) {
-      throw new BadRequestError('Orders not found')
-    }
+  const orders = await Order.find()
 
-    res.status(StatusCodes.OK).json({ orders })
-  } catch (error) {
-    console.log(error)
-    throw error
+  if (!orders) {
+    throw new BadRequestError('Orders not found')
   }
+
+  res.status(StatusCodes.OK).json({ orders })
 }
 
 export const getMyOrders = async (req, res) => {
-  try {
-    const orders = await Order.find({ userId: req.user.userId })
-    if (!orders) throw new BadRequestError('Orders not found')
-    res.status(StatusCodes.OK).json({ orders })
-  } catch (error) {
-    console.log(error)
-    throw error
+  const requestedUserId = req.params.id
+  const isAdmin = req.user.role === 'admin'
+
+  if (!isAdmin && requestedUserId !== req.user.userId) {
+    throw new UnauthorizedError('Order list access denied')
   }
+
+  const orders = await Order.find({ userId: requestedUserId })
+
+  if (!orders) throw new BadRequestError('Orders not found')
+
+  res.status(StatusCodes.OK).json({ orders })
 }
 
 export const resetOrderStatus = async (req, res) => {
@@ -228,7 +237,6 @@ export const resetOrderStatus = async (req, res) => {
     await session.commitTransaction()
     res.status(StatusCodes.OK).json({ order })
   } catch (error) {
-    console.log(error)
     await session.abortTransaction()
     throw new Error('Reset order failed')
   } finally {
