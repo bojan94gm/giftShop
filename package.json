@@ -4,7 +4,10 @@
     "dev": "nodemon server.js",
     "start": "node server.js",
     "test": "node tests/run-tests.js",
-    "tokens:drop": "node scripts/drop-token-collection.js"
+    "tokens:drop": "node scripts/drop-token-collection.js",
+    "seed": "node scripts/seed.js --env=dev --reset",
+    "seed:test": "node scripts/seed-test.js --reset",
+    "seed:demo": "node scripts/seed.js --env=demo --reset"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -30,5 +33,8 @@
     "nanoid": "^4.0.2",
     "nodemailer": "^8.0.1",
     "nodemon": "^2.0.22"
+  },
+  "devDependencies": {
+    "@faker-js/faker": "^10.4.0"
   }
 }
