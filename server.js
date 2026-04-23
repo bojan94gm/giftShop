@@ -42,12 +42,8 @@ import { authenticationMiddleware } from './middlewares/handleAuthMiddleware.js'
 app.use('/api/v1/auth', authRouter)
 app.use('/api/v1/cart', authenticationMiddleware, cartRouter)
 app.use('/api/v1/products', productRouter)
-app.use(
-  '/api/v1/category',
-  authenticationMiddleware,
-  authorizationMiddleware,
-  categoryRouter,
-)
+app.use('/api/v1/categories', categoryRouter)
+app.use('/api/v1/category', categoryRouter)
 
 app.use('/api/v1/orders', authenticationMiddleware, orderRouter)
 

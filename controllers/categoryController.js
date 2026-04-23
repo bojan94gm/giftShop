@@ -15,7 +15,6 @@ export const createCategory = async (req, res) => {
       .status(StatusCodes.CREATED)
       .json({ msg: 'Category created', newCategory })
   } catch (error) {
-    console.log(error)
     throw error
   }
 }
@@ -25,7 +24,6 @@ export const getAllCategories = async (req, res) => {
     const categories = await Category.find({})
     res.status(StatusCodes.OK).json({ categories })
   } catch (error) {
-    console.log(error)
     throw error
   }
 }
@@ -35,7 +33,6 @@ export const getCategory = async (req, res) => {
     const category = await Category.findById(req.params.id)
     res.status(StatusCodes.OK).json({ category })
   } catch (error) {
-    console.log(error)
     throw new NotFoundError('Category is not found')
   }
 }
@@ -54,7 +51,6 @@ export const updateCategory = async (req, res) => {
     })
     res.status(StatusCodes.OK).json({ category })
   } catch (error) {
-    console.log(error)
     throw error
   }
 }
@@ -64,7 +60,6 @@ export const deleteCategory = async (req, res) => {
     const category = await Category.findByIdAndDelete(req.params.id)
     res.status(StatusCodes.OK).json({ msg: 'Category is deleted', category })
   } catch (error) {
-    console.log(error)
     throw error
   }
 }

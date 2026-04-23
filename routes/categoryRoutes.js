@@ -9,14 +9,39 @@ import {
 } from '../controllers/categoryController.js'
 
 import { validateCategory } from '../middlewares/handleValidationMiddleware.js'
+import { authorizationMiddleware } from '../middlewares/authorizationMiddleware.js'
+import {
+  attachUserIfPresent,
+  authenticationMiddleware,
+} from '../middlewares/handleAuthMiddleware.js'
+import { publicCatalogRateLimit } from '../middlewares/rateLimitMiddleware.js'
 
 const router = Router()
 
-router.route('/').post(validateCategory, createCategory).get(getAllCategories)
+router
+  .route('/')
+  .get(publicCatalogRateLimit, attachUserIfPresent, getAllCategories)
+  .post(
+    authenticationMiddleware,
+    authorizationMiddleware,
+    validateCategory,
+    createCategory,
+  )
 router
   .route('/:id')
-  .get(getCategory)
-  .patch(validateCategory, updateCategory)
-  .delete(deleteCategory)
+  .get(publicCatalogRateLimit, attachUserIfPresent, getCategory)
+  .patch(
+    authenticationMiddleware,
+    authorizationMiddleware,
+    validateCategory,
+    updateCategory,
+  )
+  .put(
+    authenticationMiddleware,
+    authorizationMiddleware,
+    validateCategory,
+    updateCategory,
+  )
+  .delete(authenticationMiddleware, authorizationMiddleware, deleteCategory)
 
 export default router

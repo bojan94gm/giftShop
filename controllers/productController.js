@@ -7,7 +7,6 @@ export const createProduct = async (req, res) => {
     const product = await Product.create(req.body)
     res.status(StatusCodes.CREATED).json({ product })
   } catch (error) {
-    console.log(error)
     throw new BadRequestError('Product is not created')
   }
 }
@@ -77,7 +76,6 @@ export const updateProduct = async (req, res) => {
     })
     res.status(StatusCodes.OK).json({ product })
   } catch (error) {
-    console.log(error)
     throw new BadRequestError(`Updating product has failed`)
   }
 }

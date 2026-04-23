@@ -16,3 +16,22 @@ export const authenticationMiddleware = (req, res, next) => {
   }
   next()
 }
+
+export const attachUserIfPresent = (req, res, next) => {
+  const token = req.signedCookies?.accessToken
+
+  if (!token) return next()
+
+  try {
+    const user = validateUser(token)
+
+    req.user = {
+      userId: user.userId,
+      role: user.role,
+    }
+  } catch (error) {
+    req.user = undefined
+  }
+
+  next()
+}
