@@ -1,5 +1,12 @@
-export const setCookie = (res, token, duration) => {
-  res.cookie('token', token, {
+import {
+  ACCESS_TOKEN_COOKIE_NAME,
+  REFRESH_TOKEN_COOKIE_NAME,
+} from './tokenUtils.js'
+
+const EXPIRED_COOKIE_MAX_AGE_MS = 0
+
+export const setCookie = (res, cookieName, token, duration) => {
+  res.cookie(cookieName, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
@@ -7,11 +14,17 @@ export const setCookie = (res, token, duration) => {
   })
 }
 
-export const clearCookie = (res) => {
-  res.cookie('token', '', {
+export const clearCookie = (res, cookieName) => {
+  res.cookie(cookieName, '', {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
+    signed: true,
     sameSite: 'lax',
-    maxAge: new Date(0),
+    maxAge: EXPIRED_COOKIE_MAX_AGE_MS,
   })
+}
+
+export const clearAuthCookies = (res) => {
+  clearCookie(res, ACCESS_TOKEN_COOKIE_NAME)
+  clearCookie(res, REFRESH_TOKEN_COOKIE_NAME)
 }

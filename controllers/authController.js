@@ -2,10 +2,17 @@ import { BadRequestError, UnauthenticatedError } from '../errors/errors.js'
 import User from '../models/User.js'
 import { StatusCodes } from 'http-status-codes'
 import { hashPassword, validatePassword } from '../utils/passwordUtils.js'
-import { createJWT } from '../utils/tokenUtils.js'
-import { setCookie, clearCookie } from '../utils/cookieUtils.js'
+import { clearAuthCookies } from '../utils/cookieUtils.js'
 import crypto from 'crypto'
 import { sendVerificationEmail } from '../utils/sendVerificationEmail.js'
+import Token from '../models/Token.js'
+import {
+  attachCookiesToResponse,
+  createAccessToken,
+  createRefreshToken,
+  getRefreshTokenExpiresAt,
+  validateUser,
+} from '../utils/tokenUtils.js'
 
 export const login = async (req, res) => {
   try {
@@ -26,15 +33,44 @@ export const login = async (req, res) => {
       throw new UnauthenticatedError('Please verify your email')
     }
 
-    const token = createJWT({ userId: user._id, role: user.role })
+    const accessToken = createAccessToken(user)
+    const refreshToken = createRefreshToken()
+    const ip = req.ip
+    const userAgent = req.headers['user-agent'] || 'unknown'
+    const expiresAt = getRefreshTokenExpiresAt()
 
-    const day = 24 * 60 * 60 * 1000
-    setCookie(res, token, day)
+    await Token.deleteMany({
+      user: user._id,
+      expiresAt: { $lte: new Date() },
+    })
 
-    res.status(StatusCodes.OK).json({ user, token })
+    await Token.findOneAndUpdate(
+      { user: user._id },
+      {
+        $set: {
+          user: user._id,
+          refreshToken,
+          ip,
+          userAgent,
+          isValid: true,
+          expiresAt,
+        },
+      },
+      {
+        new: true,
+        runValidators: true,
+        setDefaultsOnInsert: true,
+        upsert: true,
+      },
+    )
+
+    attachCookiesToResponse({ res, user, accessToken, refreshToken })
+
+    res.status(StatusCodes.OK).json({ msg: 'User logged in' })
   } catch (error) {
     console.log(error)
-    res.status(error.statusCode).json({ msg: error.message })
+    const statusCode = error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR
+    res.status(statusCode).json({ msg: error.message })
   }
 }
 
@@ -64,8 +100,55 @@ export const register = async (req, res) => {
   }
 }
 
+export const refresh = async (req, res) => {
+  const token = req.signedCookies.refreshToken
+
+  if (!token) throw new UnauthenticatedError('Refresh token required')
+
+  const payload = validateUser(token)
+
+  const existingToken = await Token.findOne({
+    user: payload.userId,
+    refreshToken: payload.refreshToken,
+    isValid: true,
+    expiresAt: { $gt: new Date() },
+  })
+
+  if (!existingToken) throw new UnauthenticatedError('Invalid refresh token')
+
+  const user = await User.findById(payload.userId)
+
+  if (!user) throw new UnauthenticatedError('Invalid refresh token')
+
+  const accessToken = createAccessToken(user)
+
+  attachCookiesToResponse({
+    res,
+    user,
+    accessToken,
+    refreshToken: existingToken.refreshToken,
+  })
+
+  res.status(StatusCodes.OK).json({ msg: 'Token refreshed' })
+}
+
 export const logout = async (req, res) => {
-  clearCookie(res)
+  const token = req.signedCookies?.refreshToken
+
+  if (token) {
+    try {
+      const payload = validateUser(token)
+
+      await Token.findOneAndDelete({
+        user: payload.userId,
+        refreshToken: payload.refreshToken,
+      })
+    } catch (error) {
+      console.log(error.message)
+    }
+  }
+
+  clearAuthCookies(res)
   res.status(StatusCodes.OK).json({ msg: 'User is logged out' })
 }
 

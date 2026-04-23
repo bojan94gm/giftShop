@@ -2,7 +2,7 @@ import { UnauthenticatedError } from '../errors/errors.js'
 import { validateUser } from '../utils/tokenUtils.js'
 
 export const authenticationMiddleware = (req, res, next) => {
-  const token = req.cookies.token
+  const token = req.signedCookies.accessToken
 
   if (!token) throw new UnauthenticatedError('Authentication required')
 

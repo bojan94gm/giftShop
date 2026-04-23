@@ -11,7 +11,7 @@ app.use(express.static('public'))
 app.use(express.json())
 app.use(fileUpload())
 import cookieParser from 'cookie-parser'
-app.use(cookieParser())
+app.use(cookieParser(process.env.JWT_SECRET))
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'))
 }

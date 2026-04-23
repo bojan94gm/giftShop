@@ -2,7 +2,9 @@
   "type": "module",
   "scripts": {
     "dev": "nodemon server.js",
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node tests/run-tests.js",
+    "tokens:drop": "node scripts/drop-token-collection.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

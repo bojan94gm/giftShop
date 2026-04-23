@@ -2,6 +2,7 @@ import { Router } from 'express'
 import {
   login,
   logout,
+  refresh,
   register,
   verifyEmail,
 } from '../controllers/authController.js'
@@ -9,12 +10,12 @@ import {
   validateRegistration,
   validateLogin,
 } from '../middlewares/handleValidationMiddleware.js'
-import { authenticationMiddleware } from '../middlewares/handleAuthMiddleware.js'
 
 const router = Router()
 
-router.post('/login', validateLogin, login, authenticationMiddleware)
+router.post('/login', validateLogin, login)
 router.post('/register', validateRegistration, register)
+router.post('/refresh', refresh)
 router.get('/logout', logout)
 router.post('/verify-email', verifyEmail)
 
