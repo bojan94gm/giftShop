@@ -1,25 +1,24 @@
 import {
   ACCESS_TOKEN_COOKIE_NAME,
   REFRESH_TOKEN_COOKIE_NAME,
+  getAuthCookieBaseOptions,
 } from './tokenUtils.js'
 
+const EXPIRED_COOKIE_DATE = new Date(0)
 const EXPIRED_COOKIE_MAX_AGE_MS = 0
 
 export const setCookie = (res, cookieName, token, duration) => {
   res.cookie(cookieName, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    ...getAuthCookieBaseOptions(),
     maxAge: duration,
+    signed: true,
   })
 }
 
 export const clearCookie = (res, cookieName) => {
   res.cookie(cookieName, '', {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    signed: true,
-    sameSite: 'lax',
+    ...getAuthCookieBaseOptions(),
+    expires: EXPIRED_COOKIE_DATE,
     maxAge: EXPIRED_COOKIE_MAX_AGE_MS,
   })
 }

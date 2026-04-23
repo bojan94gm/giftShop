@@ -9,6 +9,8 @@ const REFRESH_TOKEN_TTL_DAYS = 7
 const REFRESH_TOKEN_BYTES = 40
 const DEFAULT_ACCESS_TOKEN_JWT_TTL = '1h'
 const DEFAULT_REFRESH_TOKEN_JWT_TTL = `${REFRESH_TOKEN_TTL_DAYS}d`
+const AUTH_COOKIE_PATH = '/'
+const AUTH_COOKIE_SAME_SITE = 'lax'
 
 export const ACCESS_TOKEN_COOKIE_NAME = 'accessToken'
 export const REFRESH_TOKEN_COOKIE_NAME = 'refreshToken'
@@ -30,6 +32,19 @@ const getJwtSecret = () => {
 
   return process.env.JWT_SECRET
 }
+
+export const getAuthCookieBaseOptions = () => ({
+  httpOnly: true,
+  path: AUTH_COOKIE_PATH,
+  sameSite: AUTH_COOKIE_SAME_SITE,
+  secure: process.env.NODE_ENV === 'production',
+})
+
+export const getSignedAuthCookieOptions = (maxAge) => ({
+  ...getAuthCookieBaseOptions(),
+  maxAge,
+  signed: true,
+})
 
 export const createJWT = (payload, options = {}) => {
   const token = jwt.sign(payload, getJwtSecret(), options)
@@ -81,18 +96,10 @@ export const attachCookiesToResponse = ({
   const refreshTokenJWT = createRefreshTokenJWT({ user, refreshToken })
 
   res.cookie(ACCESS_TOKEN_COOKIE_NAME, accessToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    signed: true,
-    sameSite: 'lax',
-    maxAge: ACCESS_TOKEN_COOKIE_MAX_AGE_MS,
+    ...getSignedAuthCookieOptions(ACCESS_TOKEN_COOKIE_MAX_AGE_MS),
   })
 
   res.cookie(REFRESH_TOKEN_COOKIE_NAME, refreshTokenJWT, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    signed: true,
-    sameSite: 'lax',
-    maxAge: REFRESH_TOKEN_COOKIE_MAX_AGE_MS,
+    ...getSignedAuthCookieOptions(REFRESH_TOKEN_COOKIE_MAX_AGE_MS),
   })
 }

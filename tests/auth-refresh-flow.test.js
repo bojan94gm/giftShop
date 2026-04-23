@@ -9,6 +9,7 @@ import User from '../models/User.js'
 import { hashPassword } from '../utils/passwordUtils.js'
 import {
   ACCESS_TOKEN_COOKIE_NAME,
+  createRefreshTokenJWT,
   REFRESH_TOKEN_COOKIE_MAX_AGE_MS,
   REFRESH_TOKEN_COOKIE_NAME,
 } from '../utils/tokenUtils.js'
@@ -67,6 +68,26 @@ const createCookieRequest = (refreshTokenCookie) => ({
     [REFRESH_TOKEN_COOKIE_NAME]: refreshTokenCookie,
   },
 })
+
+const assertAuthCookiesWereCleared = (response) => {
+  const clearedCookieNames = response.cookies.map((cookie) => cookie.name)
+
+  assert.deepEqual(clearedCookieNames.sort(), [
+    ACCESS_TOKEN_COOKIE_NAME,
+    REFRESH_TOKEN_COOKIE_NAME,
+  ])
+
+  response.cookies.forEach((cookie) => {
+    assert.equal(cookie.value, '')
+    assert.equal(cookie.options.httpOnly, true)
+    assert.equal(cookie.options.maxAge, 0)
+    assert.equal(cookie.options.path, '/')
+    assert.equal(cookie.options.sameSite, 'lax')
+    assert.equal(cookie.options.secure, false)
+    assert.ok(cookie.options.expires <= new Date())
+    assert.equal(cookie.options.signed, undefined)
+  })
+}
 
 beforeEach(() => {
   process.env.JWT_SECRET = TEST_JWT_SECRET
@@ -251,23 +272,56 @@ test('manual auth flow contract: login, refresh, logout, then refresh is rejecte
   await logout(refreshRequest, logoutResponse)
 
   assert.equal(logoutResponse.statusCode, 200)
-  assert.equal(
-    logoutResponse.cookies.some(
-      (cookie) => cookie.name === ACCESS_TOKEN_COOKIE_NAME,
-    ),
-    true,
-  )
-  assert.equal(
-    logoutResponse.cookies.some(
-      (cookie) => cookie.name === REFRESH_TOKEN_COOKIE_NAME,
-    ),
-    true,
-  )
+  assert.deepEqual(logoutResponse.body, { success: true })
+  assertAuthCookiesWereCleared(logoutResponse)
 
   await assert.rejects(
     () => refresh(refreshRequest, createResponse()),
     (error) => error.statusCode === 401,
   )
+})
+
+test('logout without session is idempotent and clears both cookies without values', async () => {
+  const deleteMock = mock.method(Token, 'findOneAndDelete', async () => {
+    throw new Error('Token deletion must not run without a refresh token')
+  })
+  const response = createResponse()
+
+  await logout({ signedCookies: {} }, response)
+
+  assert.equal(response.statusCode, 200)
+  assert.deepEqual(response.body, { success: true })
+  assert.equal(deleteMock.mock.callCount(), 0)
+  assertAuthCookiesWereCleared(response)
+})
+
+test('logout with session deletes persisted refresh token and expires both cookies', async () => {
+  const user = await createVerifiedUser()
+  const persistedRefreshToken = 'persisted-refresh-token'
+  const refreshTokenCookie = createRefreshTokenJWT({
+    user,
+    refreshToken: persistedRefreshToken,
+  })
+  let deleteFilter
+
+  const deleteMock = mock.method(Token, 'findOneAndDelete', async (filter) => {
+    deleteFilter = filter
+    return {
+      refreshToken: persistedRefreshToken,
+      user: user._id,
+    }
+  })
+
+  const response = createResponse()
+
+  await logout(createCookieRequest(refreshTokenCookie), response)
+
+  assert.equal(response.statusCode, 200)
+  assert.deepEqual(response.body, { success: true })
+  assert.equal(deleteMock.mock.callCount(), 1)
+  assert.equal(String(deleteFilter.user), String(user._id))
+  assert.equal(deleteFilter.refreshToken, persistedRefreshToken)
+  assertAuthCookiesWereCleared(response)
 })
 
 test(
@@ -297,5 +351,44 @@ test(
     assert.equal(secondResponse.statusCode, 200)
     assert.equal(tokenDocuments.length, 1)
     assert.equal(String(tokenDocuments[0].user), String(user._id))
+  },
+)
+
+test(
+  'integration: logout deletes Token document when TEST_MONGO_URI is set',
+  { skip: !process.env.TEST_MONGO_URI },
+  async () => {
+    await mongoose.connect(process.env.TEST_MONGO_URI)
+    await mongoose.connection.dropDatabase()
+
+    const user = await User.create({
+      email: 'mongo-logout@example.com',
+      isVerified: true,
+      name: 'Mongo Logout',
+      password: await hashPassword(TEST_PASSWORD),
+      role: 'user',
+    })
+    const persistedRefreshToken = 'mongo-refresh-token'
+
+    await Token.create({
+      user: user._id,
+      refreshToken: persistedRefreshToken,
+      ip: '127.0.0.1',
+      userAgent: 'node-test-agent',
+    })
+
+    const response = createResponse()
+    const refreshTokenCookie = createRefreshTokenJWT({
+      user,
+      refreshToken: persistedRefreshToken,
+    })
+
+    await logout(createCookieRequest(refreshTokenCookie), response)
+
+    const tokenCount = await Token.countDocuments({ user: user._id })
+
+    assert.equal(response.statusCode, 200)
+    assert.equal(tokenCount, 0)
+    assertAuthCookiesWereCleared(response)
   },
 )

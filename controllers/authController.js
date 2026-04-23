@@ -11,6 +11,7 @@ import {
   createAccessToken,
   createRefreshToken,
   getRefreshTokenExpiresAt,
+  REFRESH_TOKEN_COOKIE_NAME,
   validateUser,
 } from '../utils/tokenUtils.js'
 
@@ -133,7 +134,7 @@ export const refresh = async (req, res) => {
 }
 
 export const logout = async (req, res) => {
-  const token = req.signedCookies?.refreshToken
+  const token = req.signedCookies?.[REFRESH_TOKEN_COOKIE_NAME]
 
   if (token) {
     try {
@@ -149,7 +150,7 @@ export const logout = async (req, res) => {
   }
 
   clearAuthCookies(res)
-  res.status(StatusCodes.OK).json({ msg: 'User is logged out' })
+  res.status(StatusCodes.OK).json({ success: true })
 }
 
 export const verifyEmail = async (req, res) => {
